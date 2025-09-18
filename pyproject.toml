@@ -29,8 +29,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Todate/reportlab_typesetting"
-"Bug Tracker" = "https://github.com/Todate/reportlab_typesetting/issues"
+Homepage = "https://github.com/T0date/reportlab_typesetting"
+"Bug Tracker" = "https://github.com/T0date/reportlab_typesetting/issues"
 
 [project.optional-dependencies]
 dev = [
