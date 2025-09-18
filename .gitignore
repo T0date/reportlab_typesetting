@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# IDE / Editor specific
+.vscode/
+
+# Example output
+output/
+
+# Font
+*.ttf
+
+# Environment management
+.tool-versions

@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reportlab_typesetting"
+version = "0.0.1"
+authors = [
+  { name="T0date", email="47016429+T0date@users.noreply.github.com" },
+]
+description = "A library to simplify complex typesetting with ReportLab, featuring Japanese Kinsoku rules, automatic font switching, and block alignment."
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Japanese",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Printing",
+    "Topic :: Text Processing",
+]
+dependencies = [
+    "reportlab~=4.4",
+    "pyphen~=0.17",
+]
+
+[project.urls]
+Homepage = "https://github.com/Todate/reportlab_typesetting"
+"Bug Tracker" = "https://github.com/Todate/reportlab_typesetting/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "src"
+]
