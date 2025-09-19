@@ -248,3 +248,110 @@ def test_layout_cjk_numeric_chunk_wrapping(numeric_string):
     # (block_widthが狭いため、その後ろでさらに改行される可能性がある)
     assert len(layout.lines) > 1
     assert layout.lines[1].glyphs[0].text == numeric_string
+
+
+@pytest.mark.parametrize(
+    "alpha_string",
+    [
+        "English",
+        "word",
+        "alphabet",
+        "abc's",
+        "don't",
+    ],
+    ids=["long_word", "short_word", "medium_word", "possessive", "contraction"],
+)
+def test_layout_cjk_alpha_chunk_no_wrapping(alpha_string):
+    """
+    CJKテキスト内のアルファベットのまとまりが、折り返しなしの場合に1つのグリフとして扱われることをテストする。
+    """
+    # Arrange
+    engine = LayoutEngine()
+    font = Font(name="HeiseiKakuGo-W5", word_wrap="CJK")
+    engine.add_font(font)
+
+    font_size = 12
+    block_width = float("inf")
+
+    text = f"あいうえ{alpha_string}かきくけ"
+
+    # Act
+    layout = engine.layout(text, width=block_width, font_size=font_size)
+
+    # Assert
+    assert len(layout.lines) == 1
+    assert len(layout.lines[0].glyphs) == 9
+    assert layout.lines[0].glyphs[4].text == alpha_string
+    line_text = "".join(g.text for g in layout.lines[0].glyphs)
+    assert line_text == text
+
+
+@pytest.mark.parametrize(
+    "alpha_string",
+    [
+        "English",
+        "word",
+        "alphabet",
+        "abc's",
+        "don't",
+    ],
+    ids=["long_word", "short_word", "medium_word", "possessive", "contraction"],
+)
+def test_layout_cjk_alpha_chunk_wrapping(alpha_string):
+    """
+    CJKテキスト内のアルファベットのまとまりが行頭に来る場合に、分割されずに次行に送られることをテストする。
+    """
+    # Arrange
+    engine = LayoutEngine()
+    font = Font(name="HeiseiKakuGo-W5", word_wrap="CJK")
+    engine.add_font(font)
+
+    font_size = 12
+    # "あいうえ" (幅48) は収まるが、次のEnglishの単語は収まらない幅に設定。
+    block_width = 50
+
+    text = f"あいうえ{alpha_string}かきくけ"
+
+    # Act
+    layout = engine.layout(text, width=block_width, font_size=font_size)
+
+    # Assert
+    line1_text = "".join(g.text for g in layout.lines[0].glyphs)
+    assert line1_text == "あいうえ"
+
+    # 2行目がアルファベットのまとまり全体で始まっていることを確認する
+    assert len(layout.lines) > 1
+    assert layout.lines[1].glyphs[0].text == alpha_string
+
+
+@pytest.mark.parametrize(
+    "alpha_string",
+    [
+        "English",
+    ],
+    ids=["long_word"],
+)
+def test_layout_cjk_alpha_chunk_wrapping_with_pyphenation(alpha_string):
+    """
+    CJKテキスト内のアルファベットのまとまりが行頭に来る場合に、分割されずに次行に送られることをテストする。
+    """
+    # Arrange
+    engine = LayoutEngine()
+    font = Font(name="HeiseiKakuGo-W5", word_wrap="CJK")
+    engine.add_font(font)
+
+    font_size = 12
+    # "あいうえ" (幅48) は収まるが、次のEnglishの単語は収まらない幅に設定。
+    block_width = 85
+
+    text = f"あいうえ{alpha_string}かきくけ"
+
+    # Act
+    layout = engine.layout(
+        text, width=block_width, font_size=font_size, use_hyphenation=True
+    )
+
+    # Assert
+    # 単語の途中で分割されていることを確認する
+    assert layout.lines[0].glyphs[-1].text == "Eng-"
+    assert layout.lines[1].glyphs[0].text == "lish"

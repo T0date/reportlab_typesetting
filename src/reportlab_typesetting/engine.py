@@ -142,32 +142,115 @@ class LayoutEngine:
                 return glyphs, remaining_chunks
 
             if font.word_wrap == "CJK":
-                # CJKテキストを、数字の連続とそれ以外の単一文字に分割する
-                cjk_words = re.findall(r"-?\d+(?:[.,]\d+)*|\D", text)
+                # CJKテキストを、数字の連続・英字の連続・それ以外の単一文字に分割する
+                cjk_words = re.findall(
+                    r"-?\d+(?:[.,]\d+)*|[a-zA-Z]+(?:'[a-zA-Z]+)*|.", text
+                )
                 i = 0
                 while i < len(cjk_words):
                     word = cjk_words[i]
                     word_width = pdfmetrics.stringWidth(word, font.name, font_size)
 
                     if cursor_x + word_width > max_width:
-                        # 禁則処理
-                        # 数字の連続は分割せず、常に一つの単位として扱う
+                        # 単語が収まらない場合
                         is_numeric_chunk = re.fullmatch(r"-?\d+(?:[.,]\d+)*", word)
-                        if is_numeric_chunk:
+                        is_alpha_chunk = re.fullmatch(r"[a-zA-Z]+(?:'[a-zA-Z]+)*", word)
+
+                        # ================================================================
+                        # Case 1: 行が空なのに単語が長すぎて収まらない場合
+                        # ================================================================
+
+                        # 無限ループを避けるため、この単語を配置して強制的に改行する
+                        if not glyphs:
+                            glyphs.append(
+                                Glyph(
+                                    word,
+                                    font,
+                                    font_size,
+                                    cursor_x,
+                                    y,
+                                    word_width,
+                                    line_index,
+                                )
+                            )
+                            # この単語を消費して、残りを次の行に回す
+                            remaining_text = "".join(cjk_words[i + 1 :])
+                            if remaining_text:
+                                remaining_chunks.append((remaining_text, font))
+                            remaining_chunks.extend(chunks[idx + 1 :])
+                            return glyphs, remaining_chunks
+
+                        # ================================================================
+                        # Case 2: 行が空ではないので、通常の改行処理を行う
+                        # ================================================================
+
+                        # 数字の連続は分割せず、常に一つの単位として扱う
+                        elif is_numeric_chunk:
                             # 前のグリフの最後の文字が行末禁則かチェック
                             last_glyph_last_char = glyphs[-1].text[-1] if glyphs else ""
                             if last_glyph_last_char in self.KINSHI_TAIL:
                                 # 前のグリフも次行に送る
                                 last_glyph = glyphs.pop()
-                                remaining_words = [last_glyph.text, word] + cjk_words[
-                                    i + 1 :
-                                ]
+                                remaining_text = last_glyph.text + "".join(
+                                    cjk_words[i:]
+                                )
                             else:
-                                # 数字のブロックはそのまま次行へ
-                                remaining_words = cjk_words[i:]
-                            remaining_text = "".join(remaining_words)
+                                # 数字/アルファベットのまとまりはそのまま次行へ
+                                remaining_text = "".join(cjk_words[i:])
 
-                        else:  # 数字以外の単一文字の場合、詳細な禁則処理を適用
+                        # アルファベットの連続は分割も考慮に入れて処理する
+                        elif is_alpha_chunk:
+                            # ハイフネーションが有効な場合は試みる
+                            if use_hyphenation and self.__hyphen_dic:
+                                possible_splits = list(self.__hyphen_dic.iterate(word))
+                                best_split = None
+                                for part1, part2 in reversed(possible_splits):
+                                    hyphenated_part = part1 + "-"
+                                    part_width = pdfmetrics.stringWidth(
+                                        hyphenated_part, font.name, font_size
+                                    )
+                                    if cursor_x + part_width <= max_width:
+                                        best_split = (
+                                            hyphenated_part,
+                                            part_width,
+                                            part2,
+                                        )
+                                        break
+
+                                if best_split:
+                                    hyphenated_part, part_width, remaining_part = (
+                                        best_split
+                                    )
+                                    glyphs.append(
+                                        Glyph(
+                                            hyphenated_part,
+                                            font,
+                                            font_size,
+                                            cursor_x,
+                                            y,
+                                            part_width,
+                                            line_index,
+                                        )
+                                    )
+                                    remaining_text = remaining_part + "".join(
+                                        cjk_words[i + 1 :]
+                                    )
+                                    # ハイフネーションしたので、ここで改行処理を完了
+                                    if need_justify:
+                                        self.__justification(glyphs, max_width)
+                                    if remaining_text:
+                                        remaining_chunks.append((remaining_text, font))
+                                    remaining_chunks.extend(chunks[idx + 1 :])
+                                    return glyphs, remaining_chunks
+
+                            # ハイフネーションしない/できない場合は、単語全体を次行へ
+                            remaining_text = "".join(cjk_words[i:])
+
+                        # ================================================================
+                        # Case 3: 数字以外の単一文字の場合、詳細な禁則処理を適用
+                        # ================================================================
+
+                        else:
                             ch = word
                             can_check_prev = bool(glyphs)
                             last_glyph_last_char = (
@@ -220,6 +303,10 @@ class LayoutEngine:
                                 cursor_x += word_width
 
                             remaining_text = "".join(remaining_words)
+
+                        # ================================================================
+                        # 後処理
+                        # ================================================================
 
                         # 均等割り付け
                         if need_justify:
