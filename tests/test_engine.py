@@ -155,3 +155,96 @@ def test_layout_kinsoku_tail(char, text_before, text_after):
 
     line2_text = "".join(g.text for g in layout.lines[1].glyphs)
     assert line2_text == f"{char}{text_after}"
+
+
+@pytest.mark.parametrize(
+    "numeric_string",
+    [
+        "12345",  # プレーンな数字
+        "12,345",  # カンマ区切り
+        "12.345",  # 小数点
+        "-1234",  # 前置マイナス
+        "-12.34",  # 前置マイナスと小数点
+        "-1,234",  # 前置マイナスとカンマ
+    ],
+    ids=[
+        "plain_number",
+        "comma_separated",
+        "decimal_point",
+        "leading_minus_integer",
+        "leading_minus_float",
+        "leading_minus_comma",
+    ],
+)
+def test_layout_cjk_numeric_chunk_no_wrapping(numeric_string):
+    """
+    CJKテキスト内の様々な形式の数字が、折り返しなしの場合に1つのグリフとして扱われることをテストする。
+    """
+    # Arrange
+    engine = LayoutEngine()
+    font = Font(name="HeiseiKakuGo-W5", word_wrap="CJK")
+    engine.add_font(font)
+
+    font_size = 12
+    block_width = float("inf")
+
+    text = f"あいうえ{numeric_string}かきくけ"
+
+    # Act
+    layout = engine.layout(text, width=block_width, font_size=font_size)
+
+    # Assert
+    assert len(layout.lines) == 1
+
+    assert len(layout.lines[0].glyphs) == 9
+    assert layout.lines[0].glyphs[4].text == numeric_string
+
+    line_text = "".join(g.text for g in layout.lines[0].glyphs)
+    assert line_text == text
+
+
+@pytest.mark.parametrize(
+    "numeric_string",
+    [
+        "12345",  # プレーンな数字
+        "12,345",  # カンマ区切り
+        "12.345",  # 小数点
+        "-1234",  # 前置マイナス
+        "-12.34",  # 前置マイナスと小数点
+        "-1,234",  # 前置マイナスとカンマ
+    ],
+    ids=[
+        "plain_number",
+        "comma_separated",
+        "decimal_point",
+        "leading_minus_integer",
+        "leading_minus_float",
+        "leading_minus_comma",
+    ],
+)
+def test_layout_cjk_numeric_chunk_wrapping(numeric_string):
+    """
+    CJKテキスト内の数字のまとまりが行頭に来る場合に、分割されずに次行に送られることをテストする。
+    """
+    # Arrange
+    engine = LayoutEngine()
+    font = Font(name="HeiseiKakuGo-W5", word_wrap="CJK")
+    engine.add_font(font)
+
+    font_size = 12
+    # "あいうえ" (幅48) は収まるが、次の数字のまとまりは収まらない幅に設定。
+    block_width = 49
+
+    text = f"あいうえ{numeric_string}かきくけ"
+
+    # Act
+    layout = engine.layout(text, width=block_width, font_size=font_size)
+
+    # Assert
+    line1_text = "".join(g.text for g in layout.lines[0].glyphs)
+    assert line1_text == "あいうえ"
+
+    # 2行目が数字のまとまり全体で始まっていることを確認する
+    # (block_widthが狭いため、その後ろでさらに改行される可能性がある)
+    assert len(layout.lines) > 1
+    assert layout.lines[1].glyphs[0].text == numeric_string

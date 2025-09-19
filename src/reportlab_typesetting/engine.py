@@ -142,68 +142,91 @@ class LayoutEngine:
                 return glyphs, remaining_chunks
 
             if font.word_wrap == "CJK":
+                # CJKテキストを、数字の連続とそれ以外の単一文字に分割する
+                cjk_words = re.findall(r"-?\d+(?:[.,]\d+)*|\D", text)
                 i = 0
-                while i < len(text):
-                    ch = text[i]
-                    ch_width = pdfmetrics.stringWidth(ch, font.name, font_size)
+                while i < len(cjk_words):
+                    word = cjk_words[i]
+                    word_width = pdfmetrics.stringWidth(word, font.name, font_size)
 
-                    if cursor_x + ch_width > max_width:
+                    if cursor_x + word_width > max_width:
                         # 禁則処理
-                        can_check_prev = glyphs and i < len(text)
-                        is_prev_tail = (
-                            can_check_prev and glyphs[-1].text in self.KINSHI_TAIL
-                        )
-                        is_current_head_oidashi = (
-                            can_check_prev and text[i] in self.KINSHI_HEAD_OIDASHI
-                        )
-                        is_current_head_oikomi = (
-                            can_check_prev and text[i] in self.KINSHI_HEAD_OIKOMI
-                        )
+                        # 数字の連続は分割せず、常に一つの単位として扱う
+                        is_numeric_chunk = re.fullmatch(r"-?\d+(?:[.,]\d+)*", word)
+                        if is_numeric_chunk:
+                            # 前のグリフの最後の文字が行末禁則かチェック
+                            last_glyph_last_char = glyphs[-1].text[-1] if glyphs else ""
+                            if last_glyph_last_char in self.KINSHI_TAIL:
+                                # 前のグリフも次行に送る
+                                last_glyph = glyphs.pop()
+                                remaining_words = [last_glyph.text, word] + cjk_words[
+                                    i + 1 :
+                                ]
+                            else:
+                                # 数字のブロックはそのまま次行へ
+                                remaining_words = cjk_words[i:]
+                            remaining_text = "".join(remaining_words)
 
-                        # 前の文字が追い込み対象か、追い出し対象の行頭禁則文字か
-                        is_prev_head_kinsoku = can_check_prev and (
-                            glyphs[-1].text in self.KINSHI_HEAD_OIKOMI
-                            or glyphs[-1].text in self.KINSHI_HEAD_OIDASHI
-                        )
-
-                        # 追い出し: 前の文字が行末禁則 or (今の文字が行頭禁則（追い出し）かつ、前の文字が行頭禁則でない)
-                        if is_prev_tail or (
-                            is_current_head_oidashi and not is_prev_head_kinsoku
-                        ):
-                            # 最後の1文字を次行に回す
-                            last_glyph = glyphs.pop()
-                            remaining_text = last_glyph.text + text[i:]
-
-                        # 追い込み: 今の文字が行頭禁則（追い込み） or (今の文字が行頭禁則（追い出し）で、前の文字が行頭禁則)
-                        elif is_current_head_oikomi or (
-                            is_current_head_oidashi and is_prev_head_kinsoku
-                        ):
-                            # 禁則文字をこの行に押し込む
-                            glyphs.append(
-                                Glyph(
-                                    ch,
-                                    font,
-                                    font_size,
-                                    cursor_x,
-                                    y,
-                                    ch_width,
-                                    line_index,
-                                )
+                        else:  # 数字以外の単一文字の場合、詳細な禁則処理を適用
+                            ch = word
+                            can_check_prev = bool(glyphs)
+                            last_glyph_last_char = (
+                                glyphs[-1].text[-1] if can_check_prev else ""
                             )
-                            cursor_x += ch_width
-                            remaining_text = text[i + 1 :]
 
-                        else:
-                            # 通常の改行
-                            remaining_text = text[i:]
+                            is_prev_tail = last_glyph_last_char in self.KINSHI_TAIL
+                            is_current_head_oidashi = ch in self.KINSHI_HEAD_OIDASHI
+                            is_current_head_oikomi = ch in self.KINSHI_HEAD_OIKOMI
+                            is_prev_head_kinsoku = (
+                                last_glyph_last_char in self.KINSHI_HEAD_OIKOMI
+                                or last_glyph_last_char in self.KINSHI_HEAD_OIDASHI
+                            )
+
+                            remaining_words = []
+                            perform_oikomi = False
+
+                            # 追い出し or 行末禁則
+                            if is_prev_tail or (
+                                is_current_head_oidashi and not is_prev_head_kinsoku
+                            ):
+                                last_glyph = glyphs.pop()
+                                remaining_words = [last_glyph.text, ch] + cjk_words[
+                                    i + 1 :
+                                ]
+
+                            # 追い込み
+                            elif is_current_head_oikomi or (
+                                is_current_head_oidashi and is_prev_head_kinsoku
+                            ):
+                                perform_oikomi = True
+                                remaining_words = cjk_words[i + 1 :]
+
+                            else:
+                                # 通常の改行
+                                remaining_words = cjk_words[i:]
+
+                            if perform_oikomi:
+                                glyphs.append(
+                                    Glyph(
+                                        ch,
+                                        font,
+                                        font_size,
+                                        cursor_x,
+                                        y,
+                                        word_width,
+                                        line_index,
+                                    )
+                                )
+                                cursor_x += word_width
+
+                            remaining_text = "".join(remaining_words)
 
                         # 均等割り付け
                         if need_justify:
                             self.__justification(glyphs, max_width)
 
                         # 行頭スペース削除
-                        if remaining_text.startswith(" "):
-                            remaining_text = remaining_text.lstrip()
+                        remaining_text = remaining_text.lstrip(" ")
 
                         if remaining_text:
                             remaining_chunks.append((remaining_text, font))
@@ -212,10 +235,12 @@ class LayoutEngine:
                         return glyphs, remaining_chunks
 
                     glyphs.append(
-                        Glyph(ch, font, font_size, cursor_x, y, ch_width, line_index)
+                        Glyph(
+                            word, font, font_size, cursor_x, y, word_width, line_index
+                        )
                     )
 
-                    cursor_x += ch_width
+                    cursor_x += word_width
                     i += 1
 
             else:
