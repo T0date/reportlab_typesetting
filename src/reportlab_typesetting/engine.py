@@ -1,8 +1,9 @@
 import logging
 import re
-from typing import List
+from typing import List, Optional, Union
 
 import pyphen
+from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfbase.ttfonts import TTFont
@@ -61,6 +62,7 @@ class LayoutEngine:
         self,
         text: str,
         width: float,
+        text_color: Optional[Union[str, colors.Color]] = colors.black,
         font_size: float = 12,
         leading_ratio: float = 1.2,
         use_justification: bool = False,
@@ -78,6 +80,8 @@ class LayoutEngine:
             レイアウトするテキスト
         width : float
             テキストブロックの幅
+        text_color : Optional[Union[str, colors.Color]], optional
+            テキストの色
         font_size : float, optional
             フォントサイズ
         leading_ratio : float, optional
@@ -111,6 +115,7 @@ class LayoutEngine:
                 line_index,
                 use_justification,
                 use_hyphenation,
+                text_color,
             )
 
             line_layout = LineLayout(line_index, glyphs)
@@ -130,6 +135,7 @@ class LayoutEngine:
         line_index: int,
         need_justify: bool = False,
         use_hyphenation: bool = False,
+        text_color: Optional[Union[str, colors.Color]] = colors.black,
     ) -> tuple[List[Glyph], List[tuple[str, Font]]]:
         cursor_x = 0
 
@@ -171,6 +177,7 @@ class LayoutEngine:
                                     y,
                                     word_width,
                                     line_index,
+                                    text_color,
                                 )
                             )
                             # この単語を消費して、残りを次の行に回す
@@ -230,6 +237,7 @@ class LayoutEngine:
                                             y,
                                             part_width,
                                             line_index,
+                                            text_color,
                                         )
                                     )
                                     remaining_text = remaining_part + "".join(
@@ -298,6 +306,7 @@ class LayoutEngine:
                                         y,
                                         word_width,
                                         line_index,
+                                        text_color,
                                     )
                                 )
                                 cursor_x += word_width
@@ -323,7 +332,14 @@ class LayoutEngine:
 
                     glyphs.append(
                         Glyph(
-                            word, font, font_size, cursor_x, y, word_width, line_index
+                            word,
+                            font,
+                            font_size,
+                            cursor_x,
+                            y,
+                            word_width,
+                            line_index,
+                            text_color,
                         )
                     )
 
@@ -371,6 +387,7 @@ class LayoutEngine:
                                         y,
                                         part_width,
                                         line_index,
+                                        text_color,
                                     )
                                 )
 
@@ -402,7 +419,14 @@ class LayoutEngine:
 
                     glyphs.append(
                         Glyph(
-                            word, font, font_size, cursor_x, y, word_width, line_index
+                            word,
+                            font,
+                            font_size,
+                            cursor_x,
+                            y,
+                            word_width,
+                            line_index,
+                            text_color,
                         )
                     )
                     cursor_x += word_width

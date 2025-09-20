@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import reportlab.pdfbase._fontdata as fontdata
+from reportlab.lib import colors
 from reportlab.pdfbase import cidfonts, pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfbase.ttfonts import TTFont
@@ -131,6 +132,9 @@ class Glyph:
 
     line: int
     """このグリフが属する行のインデックス"""
+
+    text_color: Optional[Union[str, colors.Color]] = colors.black
+    """グリフを描画するための文字色"""
 
 
 class LineLayout:

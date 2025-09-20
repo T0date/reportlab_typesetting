@@ -59,6 +59,7 @@ class CanvasRenderer(BaseRenderer):
         """
         for line in layout.lines:
             for glyph in line.glyphs:
+                self.canvas.setFillColor(glyph.text_color)
                 self.canvas.setFont(glyph.font.name, glyph.font_size)
                 self.canvas.drawString(x + glyph.x, y + glyph.y, glyph.text)
 
