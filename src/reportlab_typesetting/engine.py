@@ -124,6 +124,17 @@ class LayoutEngine:
             line_index += 1
             cursor_y -= line_height
 
+        text_layout.parameters = {
+            "text": text,
+            "width": width,
+            "font_size": font_size,
+            "leading_ratio": leading_ratio,
+            "use_justification": use_justification,
+            "use_hyphenation": use_hyphenation,
+            "fonts": self.__font_family,
+            "text_color": text_color,
+        }
+
         return text_layout
 
     def __layout_line(

@@ -184,8 +184,12 @@ class TextLayout:
     """レイアウトされたテキストブロック全体を表すクラス"""
 
     def __init__(self):
+        """`TextLayout`オブジェクトを初期化する"""
+
         self.lines: List[LineLayout] = []
         """構成する行オブジェクトのリスト"""
+
+        self.parameters: dict = {}
 
     def add_line(self, line: LineLayout):
         """テキストブロックに行を追加する"""

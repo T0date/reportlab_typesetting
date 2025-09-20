@@ -62,7 +62,7 @@ text_layout = engine.layout(
 
 PrintRenderer().render(text_layout)
 
-# 6. ブロックの中央に配置する例
+# 6. 配置
 aligned_layout = (
     BlockAligner(text_layout, width=block_width, height=block_height)
     .alignment(horizontal=HAlign.CENTER, vertical=VAlign.MIDDLE)
